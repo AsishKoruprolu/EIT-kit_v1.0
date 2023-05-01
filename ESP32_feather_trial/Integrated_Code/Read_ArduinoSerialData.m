@@ -20,7 +20,7 @@ end
 
 %Length of time in (s) to run the measurement
 StopTime = 3;
-Num_measurements = 500;
+Num_measurements = 2000;
 
 %Start measurement
 write(Handler,'Start',"uint8");
@@ -103,7 +103,7 @@ offset = 1.5; %Volts
 pk_pk = 0.9; %Volts
 
 [pks,locs] = findpeaks(-voltages); %finding the troughs of the signal
-voltages_pruned = voltages(locs(2):locs(end)); %pruning the signal to have points from the second trough to the last trough
+voltages_pruned = voltages(locs(5):locs(end)); %pruning the signal to have points from the Nth trough to the last trough
 x_axis_pruned = 1:1:length(voltages_pruned);
 time_pruned = (x_axis_pruned-1)*1/fs;
 

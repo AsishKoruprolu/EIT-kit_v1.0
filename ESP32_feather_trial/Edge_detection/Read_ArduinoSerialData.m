@@ -11,7 +11,7 @@ configureTerminator(Handler,"CR");
 flush(Handler);
 Time = 0;
 StartTime = toc;
-while Time<=5
+while Time<=10
     Time = toc;
     Time = Time-StartTime;
 end

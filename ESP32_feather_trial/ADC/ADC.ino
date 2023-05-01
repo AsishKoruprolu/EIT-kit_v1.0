@@ -15,19 +15,18 @@
  */
 #include <SPI.h>
 #include "MCP23S17.h"
-#include "SPIFFS.h"
 
 // Define ALTERNATE_PINS to use non-standard GPIO pins for SPI bus
 
   #define VSPI_MISO   MISO
   #define VSPI_MOSI   23
   #define VSPI_SCLK   18
-  // #define VSPI_SS     32
+  #define VSPI_SS     32
 
-  #define HSPI_MISO   36
-  #define HSPI_MOSI   13
-  #define HSPI_SCLK   14
-  // #define HSPI_SS     33
+  #define HSPI_MISO   26
+  #define HSPI_MOSI   27
+  #define HSPI_SCLK   25
+  #define HSPI_SS     33
 
 #define SPI_FREQ_FAST      2000000
 
@@ -45,9 +44,6 @@
 #define ADC_BIT7   19
 #define ADC_BIT8   21
 #define ADC_BIT9   22
-
-//Trigger
-#define TRIGGER A3
 
 
 /* IO expander pin mappings */
@@ -80,22 +76,6 @@ static const int spiClk = 1000000; // 1 MHz
 SPIClass * vspi = NULL;
 SPIClass * hspi = NULL;
 
-//Variables for edge detection
-int TrigState = 0;        // current state of the button
-int lastTrigState = 1;    // previous state of the button
-int t1,t2,t3;
-int cycles = 0;
-uint16_t dc_values[2000];
-uint16_t time_period[2000];
-int print_flag=1;
-
-//Variables for automating data collection
-char* start = "Start";
-char* stop = "Stop";
-uint8_t received[8] = {0};
-int NewSerialData = 0;
-
-
 void setup() {
   Serial.begin(115200);
   // initialise two instances of the SPIClass attached to VSPI and HSPI respectively
@@ -107,10 +87,6 @@ void setup() {
   vspi->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI);; //SCLK, MISO, MOSI, SS
   IOExpander.begin();
   vspi->setHwCs(false);
-
-  //Setting the trigger pin that will take ADC clock as a reference to initiate ADC sampling
-  pinMode(TRIGGER,INPUT);
-
 
   // Set CS back to high in case HSPI initialization overwrote it
   pinMode(CHIP_SEL_MCP23S17, OUTPUT);
@@ -171,76 +147,21 @@ void setup() {
     
   }  
   adc_out_avg = (adc_out_avg*1.0)/(i-n_read_skip);
-  // Serial.println("GPIO converted val average, BIN, DEC: "+String(adc_out_avg,BIN)+" "+String(adc_out_avg));
+  Serial.println("GPIO converted val average, BIN, DEC: "+String(adc_out_avg,BIN)+" "+String(adc_out_avg));
 
   // IOExpander.digitalWrite(ADC_PWRDN, HIGH);
   // IOExpander.digitalWrite(ADC_OE, HIGH);
   
   // Signal reading results for AC signal
-  // double _signal_rms[10];    // Store signal RMS data
-  // uint16_t adc_buf[MAX_SAMPLES];              // Store converted ADC samples of the input waveform
-  // uint32_t gpio_buf[MAX_SAMPLES*ADC_AVG];     // Store raw GPIO readings
-  // Serial.println("Delta T: "+String(read_signal(_signal_rms,adc_buf,gpio_buf,100)));
-  t1 = micros();
+  double _signal_rms[10];    // Store signal RMS data
+  uint16_t adc_buf[MAX_SAMPLES];              // Store converted ADC samples of the input waveform
+  uint32_t gpio_buf[MAX_SAMPLES*ADC_AVG];     // Store raw GPIO readings
+  Serial.println("Delta T: "+String(read_signal(_signal_rms,adc_buf,gpio_buf,100)));
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
 // Serial.println("GPIO converted val: "+String(gpio_convert(gpio_read())));
-  int k=0;
-
-  TrigState = digitalRead(TRIGGER);
-
-  if(lastTrigState==1 && TrigState==0 && cycles<500){
-    // time_period[cycles] = t3-t2;
-    dc_values[cycles]=gpio_convert(gpio_read());
-    
-    // t2 = micros();
-    // Serial.println("Delta T: "+String(t2-t1));
-    cycles += 1;
-    // t3 = micros();
-    // Serial.println("Print statement delay: "+String(t3-t2));
-    // t1 = t2;
-  }
-  lastTrigState = TrigState; //changing past trigger value to current value
-
-  // t2 = micros();
-  
-  if(cycles>=500){
-    //Code to print out the measurements that we stored in an array
-    if(print_flag==1){
-      for(int i=0;i<cycles;i=i+1){
-        Serial.println(dc_values[i]);
-        // Serial.println(time_period[i]);
-        // file.print(dc_values[i]);
-      }
-      print_flag=0;
-    }
-
-    //Code to automate data collection using MATLAB
-    while(Serial.available() > 0) 
-    {  
-      received[k] = Serial.read();
-      k++;
-      NewSerialData = 1;
-    }
-    // t3 = micros();
-    //if we receive a start command, keep taking data readings
-    if (!strcmp(start, (char*) received))
-    {
-      int j=0;
-      while(j<cycles){
-        Serial.println(dc_values[j]);
-        j += 1;
-      }
-    }
-    
-  }
-  // t3 = micros();
-  // t2 = micros();
-
-  // t3 = micros();
-  // Serial.println("Statements delay: "+String(t3-t2));
 }
 
 void spiCommand(SPIClass *spi, uint16_t data) {

@@ -109,8 +109,8 @@ static const int spiClk = 1000000; // 1 MHz
 static const uint8_t elec_to_mux[MAX_ELECTRODES] = { 9, 10, 11, 8, 7, 6, 5, 4, 3, 2, 1, 0, 12, 13, 14, 15, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16};
 
 //uninitalised pointers to SPI objects
-SPIClass * vspi = NULL;
-SPIClass * hspi = NULL;
+// SPIClass * vspi = NULL;
+// SPIClass * hspi = NULL;
 
 //Variables for edge detection
 int TrigState = 0;        // current state of the button
@@ -127,45 +127,56 @@ char* stop = "Stop";
 uint8_t received[8] = {0};
 int NewSerialData = 0;
 
+SPIClass * vspi = new SPIClass(VSPI);
+SPIClass * hspi = new SPIClass(HSPI);
+MCP23S17 IOExpander(vspi, CHIP_SEL_MCP23S17, 0);
+
 
 void setup() {
   Serial.begin(115200);
   // initialise two instances of the SPIClass attached to VSPI and HSPI respectively
-  vspi = new SPIClass(VSPI);
-  hspi = new SPIClass(HSPI);
-  MCP23S17 IOExpander(vspi, CHIP_SEL_MCP23S17, 0);
+  // vspi = new SPIClass(VSPI);
+  // hspi = new SPIClass(HSPI);
+  // MCP23S17 IOExpander(vspi, CHIP_SEL_MCP23S17, 0);
   
   //clock miso mosi ss
+  hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI); //SCLK, MISO, MOSI, SS
+  hspi->setHwCs(false);
+
   vspi->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI);; //SCLK, MISO, MOSI, SS
   IOExpander.begin();
   vspi->setHwCs(false);
-  hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI); //SCLK, MISO, MOSI, SS
+  
+
+  //MUX Sketch Code
+  pinMode(CHIP_SEL_MCP23S17, OUTPUT);
+  digitalWrite(CHIP_SEL_MCP23S17, HIGH);
+  // For the MUX connected via MCP23S17 on port A
+  IOExpander.pinMode(CHIP_SEL_MUX_SRC, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_SINK, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_VP, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_VN, OUTPUT);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_SRC, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_SINK, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_VP, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_VN, HIGH);
+
+  IOExpander.pinMode(CHIP_SEL_MUX_SRC_2, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_SINK_2, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_VP_2, OUTPUT);
+  IOExpander.pinMode(CHIP_SEL_MUX_VN_2, OUTPUT);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_SRC_2, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_SINK_2, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_VP_2, HIGH);
+  IOExpander.digitalWrite(CHIP_SEL_MUX_VN_2, HIGH);
+  
+  mux_write(CHIP_SEL_MUX_VN,0,1,IOExpander);//VMEAS_2
+  mux_write(CHIP_SEL_MUX_SINK,7,1,IOExpander);//IOUT_2
+  mux_write(CHIP_SEL_MUX_SRC,3,1,IOExpander);//IOUT_1
+  mux_write(CHIP_SEL_MUX_VP,30,1,IOExpander);//VMEAS_1
 
   //Setting the trigger pin that will take ADC clock as a reference to initiate ADC sampling
   pinMode(TRIGGER,INPUT);
-
-  //AD5271 sketch code
-  pinMode(CHIP_SEL_DRIVE, OUTPUT);
-  digitalWrite(CHIP_SEL_DRIVE, HIGH);
-  pinMode(CHIP_SEL_MEAS, OUTPUT);
-  digitalWrite(CHIP_SEL_MEAS, HIGH);  
-
-  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0);
-  delay(1);
-  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
-  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,25000); //Max res. = 100kOhms //Make a function such that the input is reqd. gain
-  delay(1);
-  // AD5270_Shutdown(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,0);
-  
-  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_MEAS,0);
-  delay(1);
-  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
-  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_MEAS,25000); //Max res. = 100kOhms
-  delay(1);
-
-    //MUX Sketch Code
-  pinMode(CHIP_SEL_MCP23S17, OUTPUT);
-  digitalWrite(CHIP_SEL_MCP23S17, HIGH);
 
   // ADC input
   pinMode(ADC_BIT0, INPUT);
@@ -178,6 +189,8 @@ void setup() {
   pinMode(ADC_BIT7, INPUT);
   pinMode(ADC_BIT8, INPUT);
   pinMode(ADC_BIT9, INPUT);
+
+  digitalWrite(CHIP_SEL_MCP23S17, HIGH);
 
    // For the MUX connected via MC23S17 on port A
   IOExpander.pinMode(CHIP_SEL_MUX_SRC, OUTPUT);
@@ -203,37 +216,26 @@ void setup() {
   IOExpander.pinMode(ADC_OE, OUTPUT);
   IOExpander.digitalWrite(ADC_OE, LOW);
 
-  // For DC signal analysis
-  uint32_t adc_out_avg = 0;
-  int i = 0;
-  int n_read_skip = 10; //number of readings to skip
-
-
-  for(i = 0; i <= 100; i=i+1) {
-    uint16_t adc_out = gpio_convert(gpio_read());
-    // Serial.println("GPIO converted val, HEX: "+String(adc_out,HEX));
-    // Serial.println("GPIO converted val, BIN, DEC: "+String(adc_out,BIN)+" "+String(adc_out));
-    // Serial.println("GPIO converted val, DEC: "+String(adc_out));
-    if(i+1<=n_read_skip){
-      //do nothing, skipping the first n readings
-    }
-    else{
-      adc_out_avg += adc_out; //taking average adc out
-    }
-    
-  }  
-  adc_out_avg = (adc_out_avg*1.0)/(i-n_read_skip);
-  // Serial.println("GPIO converted val average, BIN, DEC: "+String(adc_out_avg,BIN)+" "+String(adc_out_avg));
-
-  // IOExpander.digitalWrite(ADC_PWRDN, HIGH);
-  // IOExpander.digitalWrite(ADC_OE, HIGH);
-  
-  // Signal reading results for AC signal
-  // double _signal_rms[10];    // Store signal RMS data
-  // uint16_t adc_buf[MAX_SAMPLES];              // Store converted ADC samples of the input waveform
-  // uint32_t gpio_buf[MAX_SAMPLES*ADC_AVG];     // Store raw GPIO readings
-  // Serial.println("Delta T: "+String(read_signal(_signal_rms,adc_buf,gpio_buf,100)));
   t1 = micros();
+
+  //AD5271 sketch code
+  pinMode(CHIP_SEL_DRIVE, OUTPUT);
+  digitalWrite(CHIP_SEL_DRIVE, HIGH);
+  pinMode(CHIP_SEL_MEAS, OUTPUT);
+  digitalWrite(CHIP_SEL_MEAS, HIGH);  
+
+  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0);
+  delay(1);
+  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
+  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,50000); //Max res. = 100kOhms //Make a function such that the input is reqd. gain
+  delay(1);
+  // AD5270_Shutdown(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,0);
+  
+  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_MEAS,0);
+  delay(1);
+  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
+  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_MEAS,50000); //Max res. = 100kOhms
+  delay(1);
 }
 
 // the loop function runs over and over again until power down or reset
@@ -243,14 +245,14 @@ void loop() {
 
   TrigState = digitalRead(TRIGGER);
 
-  if(lastTrigState==1 && TrigState==0 && cycles<500){
+  if(lastTrigState==1 && TrigState==0 && cycles<2000){
     dc_values[cycles]=gpio_convert(gpio_read());
     cycles += 1;
   }
   lastTrigState = TrigState; //changing past trigger value to current value
 
   
-  if(cycles>=500){
+  if(cycles>=2000){
     //Code to print out the measurements that we stored in an array
     if(print_flag==1){
       for(int i=0;i<cycles;i=i+1){
