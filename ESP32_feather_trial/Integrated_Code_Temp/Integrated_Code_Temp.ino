@@ -118,7 +118,9 @@ int lastTrigState = 1;    // previous state of the button
 int t1,t2,t3;
 int cycles = 0;
 uint16_t dc_values[2000];
+uint32_t read_values[2000];
 uint16_t time_period[2000];
+double pk_pk_values[400];
 int print_flag=0;
 
 //Variables for automating data collection
@@ -172,7 +174,7 @@ void setup() {
   
   // mux_write(CHIP_SEL_MUX_VN,5,1,IOExpander);//VMEAS_2
   // mux_write(CHIP_SEL_MUX_SINK,7,0,IOExpander);//IOUT_2
-  mux_write(CHIP_SEL_MUX_SRC,1,1,IOExpander);//IOUT_1
+  // mux_write(CHIP_SEL_MUX_SRC,1,1,IOExpander);//IOUT_1
   // mux_write(CHIP_SEL_MUX_VP,3,1,IOExpander);//VMEAS_1
 
   //Setting the trigger pin that will take ADC clock as a reference to initiate ADC sampling
@@ -216,71 +218,54 @@ void setup() {
   IOExpander.pinMode(ADC_OE, OUTPUT);
   IOExpander.digitalWrite(ADC_OE, LOW);
 
-  t1 = micros();
+  // t1 = micros();
+  // mux_write(CHIP_SEL_MUX_SRC,9,1,IOExpander);//IOUT_1
+  // mux_write(CHIP_SEL_MUX_SINK,8,1,IOExpander);//IOUT_2
+  // delay(100);
+  // pk_pk_values[0] = calculate_pk_pk(2000,read_values);
+  // Serial.println("Peak to Peak(V): "+ String(pk_pk_values[0],5));
+  mux_write(CHIP_SEL_MUX_VP,0,0,IOExpander);//IOUT_1
+  mux_write(CHIP_SEL_MUX_VP,0,0,IOExpander);//IOUT_2
 
-  //AD5271 sketch code
-  pinMode(CHIP_SEL_DRIVE, OUTPUT);
-  digitalWrite(CHIP_SEL_DRIVE, HIGH);
-  pinMode(CHIP_SEL_MEAS, OUTPUT);
-  digitalWrite(CHIP_SEL_MEAS, HIGH);  
+  static const uint8_t src_electrode_order[8] = {1,2,3,4,5,6,7,0}; //c
+  static const uint8_t sink_electrode_order[8] = {0,1,2,3,4,5,6,7};
+  static const uint8_t vp_electrode_order[8] = {0,1,2,3,4,5,6,7}; //c
+  static const uint8_t vn_electrode_order[8] = {7,0,1,2,3,4,5,6};
 
-  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0);
-  delay(1);
-  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
-  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,50000); //Max res. = 100kOhms //Make a function such that the input is reqd. gain
-  delay(1);
-  // AD5270_Shutdown(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_DRIVE,0);
-  
-  AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_MEAS,0);
-  delay(1);
-  // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
-  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_MEAS,50000); //Max res. = 100kOhms
-  delay(1);
+  for(int i=0;i<8;i=i+1){
+    Serial.println("Source Channels: "+String(src_electrode_order[i]+1)+", "+ String(sink_electrode_order[i]+1));
+    mux_write(CHIP_SEL_MUX_SRC,src_electrode_order[i],1,IOExpander);//IOUT_1
+    mux_write(CHIP_SEL_MUX_SINK,sink_electrode_order[i],1,IOExpander);//IOUT_2
+    delay(2000);
+    for(int j=0;j<8;j=j+1){
+      mux_write(CHIP_SEL_MUX_VP,vp_electrode_order[j],1,IOExpander);//VMEAS_1
+      mux_write(CHIP_SEL_MUX_VN,vn_electrode_order[j],1,IOExpander);//VMEAS_2
+      delay(1000);
+      
+      pk_pk_values[8*i+j] = calculate_pk_pk_ensemble(2000,read_values);
+      Serial.println("Peak to Peak(V) for electrodes: "+ String(vp_electrode_order[j]+1)+", "+ String(vn_electrode_order[j]+1)+" "+String(pk_pk_values[8*i+j],5));
+    }
+    // Serial.println("Peak to Peak(V): "+ String(calculate_pk_pk(2000,read_values),5));
+    
+
+    // mux_write(CHIP_SEL_MUX_SRC,4,1,IOExpander);//IOUT_1
+    // mux_write(CHIP_SEL_MUX_SINK,0,1,IOExpander);//IOUT_2
+  }
+
+  for(int i=0;i<64;i=i+1){
+    Serial.println(pk_pk_values[i],5);
+  }
+  // mux_write(CHIP_SEL_MUX_SRC,1,1,IOExpander);//IOUT_1
+  // mux_write(CHIP_SEL_MUX_SINK,0,1,IOExpander);//IOUT_2
+  // mux_write(CHIP_SEL_MUX_VP,1,1,IOExpander);//VMEAS_1
+  // mux_write(CHIP_SEL_MUX_VN,0,1,IOExpander);//VMEAS_2
+  // Serial.println("Peak to Peak(V): "+ String(calculate_pk_pk_ensemble(2000,read_values,10),5));
 
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-// Serial.println("GPIO converted val: "+String(gpio_convert(gpio_read())));
-  int k=0;
 
-  TrigState = digitalRead(TRIGGER);
-
-  if(lastTrigState==1 && TrigState==0 && cycles<2000){
-    dc_values[cycles]=gpio_convert(gpio_read());
-    cycles += 1;
-  }
-  lastTrigState = TrigState; //changing past trigger value to current value
-
-  
-  if(cycles>=2000){
-    //Code to print out the measurements that we stored in an array
-    if(print_flag==1){
-      for(int i=0;i<cycles;i=i+1){
-        Serial.println(dc_values[i]);
-      }
-      print_flag=0;
-    }
-
-    //Code to automate data collection using MATLAB
-    while(Serial.available() > 0) 
-    {  
-      received[k] = Serial.read();
-      k++;
-      NewSerialData = 1;
-    }
-
-    //if we receive a start command, keep taking data readings
-    if (!strcmp(start, (char*) received))
-    {
-      int j=0;
-      while(j<cycles){
-        Serial.println(dc_values[j]);
-        j += 1;
-      }
-    }
-    
-  }
 }
 
 void spiCommand(SPIClass *spi, uint16_t data, const uint8_t bit_order, const uint8_t mode,const int chip_select) {
@@ -389,6 +374,51 @@ uint16_t gpio_convert(uint32_t gpio_reg){
   return val;
 }
 
+double calculate_pk_pk(int cycles, uint32_t * read_values){
+  int k=0;
+  uint32_t sample_sum = 0;
+  uint32_t square_sum = 0;
+  uint32_t avg;
+  uint16_t adc_buf[cycles];
+  int TrigState = 1;
+  int lastTrigState = 0;
+
+  while(k<cycles){
+    TrigState = digitalRead(TRIGGER);
+
+    if(lastTrigState==1 && TrigState==0){
+      read_values[k]=gpio_read();
+      // Serial.println(read_values[k]);
+      k += 1;
+    }
+    lastTrigState = TrigState; //changing past trigger value to current value
+  }
+
+  for(int i=0; i<k; i=i+1){
+    adc_buf[i] = gpio_convert(read_values[i]);
+    // Serial.println(adc_buf[i]);
+    sample_sum += adc_buf[i];
+  }
+
+  avg = sample_sum/k;
+  for(int i=0; i<k; i=i+1){
+    square_sum += (adc_buf[i]-avg)*(adc_buf[i]-avg);
+  }
+
+  uint16_t rms_10bit = sqrt(square_sum/k);
+  uint16_t pk_pk_10bit = rms_10bit * sqrt(2) * 2;
+  double pk_pk = (double)pk_pk_10bit * 1.031 / 1024;
+
+  return(pk_pk);
+}
+
+double calculate_pk_pk_ensemble(int cycles, uint32_t * read_values,int averages){
+  double pk_pk_avg = 0;
+  for(int i=0;i<averages;i=i+1){
+    pk_pk_avg += calculate_pk_pk(cycles,read_values);
+  }
+  return(pk_pk_avg/averages);
+}
 
 uint32_t read_signal(double * rms, uint16_t * adc_buf, uint32_t * gpio_buf, int num_samples){
   uint16_t i, j;

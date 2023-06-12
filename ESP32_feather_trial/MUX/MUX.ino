@@ -96,14 +96,14 @@ void setup() {
   IOExpander.digitalWrite(CHIP_SEL_MUX_VP_2, HIGH);
   IOExpander.digitalWrite(CHIP_SEL_MUX_VN_2, HIGH);
   
-  mux_write(CHIP_SEL_MUX_VN,0,0,IOExpander);//VMEAS_2
-  mux_write(CHIP_SEL_MUX_SINK,7,1,IOExpander);//IOUT_2
-  mux_write(CHIP_SEL_MUX_SRC,3,1,IOExpander);//IOUT_1
-  mux_write(CHIP_SEL_MUX_VP,30,0,IOExpander);//VMEAS_1
-  // for(int i = 1; i <= 18; i=i+1) {
-  //   mux_write(CHIP_SEL_MUX_VN,i,1,IOExpander);
-  //   delay(5000);
-  // }
+  // mux_write(CHIP_SEL_MUX_VN,0,0,IOExpander);//VMEAS_2
+  // mux_write(CHIP_SEL_MUX_SINK,7,0,IOExpander);//IOUT_2
+  mux_write(CHIP_SEL_MUX_SRC,24,0,IOExpander);//IOUT_1
+  mux_write(CHIP_SEL_MUX_VP,23,0,IOExpander);//VMEAS_1
+  for(int i = 1; i <= 31; i=i+1) {
+    mux_write(CHIP_SEL_MUX_VN,i,1,IOExpander);
+    delay(5000);
+  }
 
 }
 

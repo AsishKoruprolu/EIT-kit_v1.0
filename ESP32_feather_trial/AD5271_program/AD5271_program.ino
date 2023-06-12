@@ -89,7 +89,7 @@ void setup() {
   AD5270_LockUnlock(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_MEAS,0);
   delay(1);
   // AD5270_Set(vspi,MSBFIRST, SPI_MODE1,CHIP_SEL_DRIVE,0x03FF);
-  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_MEAS,25000); //Max res. = 100kOhms
+  AD5270_SetResistance(vspi,MSBFIRST,SPI_MODE1,CHIP_SEL_MEAS,50000); //Max res. = 100kOhms
   delay(1);
 
 

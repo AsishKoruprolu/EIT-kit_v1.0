@@ -9,18 +9,12 @@ COMPort = "COM3";
 Handler = serialport(COMPort,115200,'Timeout', 2);
 configureTerminator(Handler,"CR");
 flush(Handler);
-Time = 0;
-StartTime = toc;
-while Time<=5
-    Time = toc;
-    Time = Time-StartTime;
-end
 
 %% Start Measurement by sending command
 
 %Length of time in (s) to run the measurement
 StopTime = 3;
-Num_measurements = 2000;
+Num_measurements = 500;
 
 %Start measurement
 write(Handler,'Start',"uint8");
@@ -103,7 +97,7 @@ offset = 1.5; %Volts
 pk_pk = 0.9; %Volts
 
 [pks,locs] = findpeaks(-voltages); %finding the troughs of the signal
-voltages_pruned = voltages(locs(5):locs(end-2)); %pruning the signal to have points from the Nth trough to the last trough - Mth trough
+voltages_pruned = voltages(locs(2):locs(end)); %pruning the signal to have points from the second trough to the last trough
 x_axis_pruned = 1:1:length(voltages_pruned);
 time_pruned = (x_axis_pruned-1)*1/fs;
 
